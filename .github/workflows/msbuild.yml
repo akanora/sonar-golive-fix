@@ -1,0 +1,57 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Sürümü (örn: v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+      release_name:
+        description: 'Release Başlığı'
+        required: false
+        default: 'Discord Muter Release'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up MSYS2 & MinGW-w64
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: UCRT64
+        update: false
+        install: >-
+          mingw-w64-ucrt-x86_64-gcc
+
+    - name: Compile DiscordMuter.exe
+      shell: msys2 {0}
+      run: |
+        g++ -std=c++17 -O2 -Wall -Wno-unknown-pragmas -Wno-unused-function \
+            -DUNICODE -D_UNICODE -static -mwindows main.cpp \
+            -o DiscordMuter.exe \
+            -lole32 -lcomctl32 -lshell32 -lgdi32 -luuid
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: DiscordMuter-Release
+        path: DiscordMuter.exe
+
+    - name: Create Release
+      if: github.event_name == 'workflow_dispatch'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.event.inputs.tag_name }}
+        name: ${{ github.event.inputs.release_name }}
+        files: DiscordMuter.exe
+        generate_release_notes: true
